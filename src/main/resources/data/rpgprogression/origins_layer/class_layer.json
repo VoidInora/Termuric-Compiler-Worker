@@ -1,0 +1,15 @@
+{
+  "name": "Class",
+  "description": "Choose class of your character.",
+  "enabled": true,
+  "order": 0,
+  "origins": [
+    "rpgmod:fighter",
+    "rpgmod:rogue",
+    "rpgmod:mage",
+    "rpgmod:ranger",
+    "rpgmod:cleric",
+    "rpgmod:paladin",
+    "rpgmod:barbarian"
+  ]
+}

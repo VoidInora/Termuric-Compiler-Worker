@@ -1,0 +1,10 @@
+{
+  "name": "Elf",
+  "description": "",
+  "powers": [
+  ],
+  "icon": "minecraft:bow",
+  "unchoosable": false,
+  "order": 1,
+  "impact": 2
+}

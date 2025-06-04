@@ -1,41 +1,36 @@
 {
 	"schemaVersion": 1,
-	"id": "modid",
+	"id": "rpgprogression",
 	"version": "${version}",
-	"name": "Example mod",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "RPG Progression (Origins + LevelZ mod)",
+	"description": "This mod adds a bridge beetween Origins mod and LevelZ mod to make your starting choices be reflected in LevelZ statistics.",
 	"authors": [
-		"Me!"
+		"Ghaspar009"
 	],
 	"contact": {
 		"homepage": "https://fabricmc.net/",
 		"sources": "https://github.com/FabricMC/fabric-example-mod"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/modid/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.example.ExampleMod"
+			"com.rpgprogression.RPGProgressionMain"
 		],
 		"client": [
-			"com.example.ExampleModClient"
+			"com.rpgprogression.RPGProgressionClient"
 		]
 	},
-	"mixins": [
-		"modid.mixins.json",
-		{
-			"config": "modid.client.mixins.json",
-			"environment": "client"
-		}
-	],
 	"depends": {
 		"fabricloader": ">=0.16.10",
 		"minecraft": "~1.21.5",
-		"java": ">=21",
-		"fabric-api": "*"
+		"java": ">=17",
+		"fabric-api": "*",
+		"origins": "*",
+		"levelz": "*"
 	},
 	"suggests": {
-		"another-mod": "*"
+		"modmenu": "*"
 	}
 }

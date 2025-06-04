@@ -1,0 +1,15 @@
+{
+  "name": "Job",
+  "description": "Choose occupation of your character.",
+  "enabled": true,
+  "order": 0,
+  "origins": [
+    "rpgmod:miner",
+    "rpgmod:farmer",
+    "rpgmod:smith",
+    "rpgmod:merchant",
+    "rpgmod:alchemist",
+    "rpgmod:enchanter",
+    "rpgmod:engineeer"
+  ]
+}

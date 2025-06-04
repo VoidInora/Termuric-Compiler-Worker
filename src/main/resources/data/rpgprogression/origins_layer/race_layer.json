@@ -1,0 +1,14 @@
+{
+  "name": "Race",
+  "description": "Choose race of your character.",
+  "enabled": true,
+  "order": 0,
+  "origins": [
+    "rpgmod:human",
+    "rpgmod:elf",
+    "rpgmod:dwarf",
+    "rpgmod:orc",
+    "rpgmod:halfling",
+    "rpgmod:gnome"
+  ]
+}
