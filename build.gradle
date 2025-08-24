@@ -1,25 +1,48 @@
 plugins {
+<<<<<<< Updated upstream
 	id 'fabric-loom' version '1.2-SNAPSHOT'
 	id 'maven-publish'
+=======
+    id 'fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+>>>>>>> Stashed changes
 }
 
 version = project.mod_version
 group = project.maven_group
 
-repositories {
-	// Add repositories to retrieve artifacts from in here.
-	// You should only use this when depending on other mods because
-	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
-	// for more information about repositories.
+<<<<<<< Updated upstream
+=======
+base {
+    archivesName = project.archives_base_name
 }
 
-dependencies {
-	// To change the versions see the gradle.properties file
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+>>>>>>> Stashed changes
+repositories {
+    // Fabric Loom automatically adds necessary repos for Minecraft and Fabric.
+}
 
+<<<<<<< Updated upstream
+=======
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "${archives_base_name}" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+>>>>>>> Stashed changes
+dependencies {
+    // Minecraft and mappings
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+<<<<<<< Updated upstream
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
@@ -31,11 +54,16 @@ dependencies {
 
 base {
 	archivesName = project.archives_base_name
+=======
+    // Fabric API
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+>>>>>>> Stashed changes
 }
 
 processResources {
-	inputs.property "version", project.version
+    inputs.property "version", project.version
 
+<<<<<<< Updated upstream
 	filesMatching("fabric.mod.json") {
 		expand "version": project.version
 	}
@@ -60,10 +88,31 @@ jar {
 	from("LICENSE") {
 		rename { "${it}_${base.archivesName.get()}"}
 	}
+=======
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
 }
 
-// configure the maven publication
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 17 // Java 17 for Minecraft 1.19.4
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${archives_base_name}" }
+    }
+>>>>>>> Stashed changes
+}
+
 publishing {
+<<<<<<< Updated upstream
 	publications {
 		mavenJava(MavenPublication) {
 			from components.java
@@ -77,4 +126,12 @@ publishing {
 		// The repositories here will be used for publishing your artifact, not for
 		// retrieving dependencies.
 	}
+=======
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = archives_base_name
+            from components.java
+        }
+    }
+>>>>>>> Stashed changes
 }

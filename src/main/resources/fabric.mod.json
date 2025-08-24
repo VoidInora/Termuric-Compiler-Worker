@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+<<<<<<< Updated upstream
   "id": "modid",
   "version": "${version}",
 
@@ -34,5 +35,27 @@
   },
   "suggests": {
     "another-mod": "*"
+=======
+  "id": "xpmending",
+  "version": "1.0.0",
+  "name": "XP Mending Mod",
+  "description": "Use XP levels to repair Mending items manually.",
+  "authors": ["Ethan"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.ethan.xpmending.XPMendingMod"
+    ],
+    "client": [
+      "com.ethan.xpmending.XPMendingModClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.14.21",
+    "fabric": "*",
+    "minecraft": "1.19.4"
+>>>>>>> Stashed changes
   }
 }
