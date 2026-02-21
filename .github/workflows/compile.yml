@@ -1,47 +1,149 @@
-name: Turmeric Compiler Engine
+name: Compile Minecraft Mod
+
 on:
   workflow_dispatch:
     inputs:
-      minecraft_version:
-        description: 'Branch/MC Version (e.g., 1.20.1)'
-        required: true
-        default: '1.21'
       project_id:
-        description: 'Firestore Project ID'
+        description: 'Firestore project document ID'
+        required: true
+      minecraft_version:
+        description: 'Minecraft version (e.g. 1.21.4)'
+        required: true
+      loader:
+        description: 'Mod loader (Fabric, Paper, Spigot)'
+        required: true
+      java_version:
+        description: 'Java version (17 or 21)'
+        required: true
+        default: '21'
+      files_json:
+        description: 'JSON string mapping file paths to contents'
         required: true
 
 jobs:
-  build_and_upload:
+  compile:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Template
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.minecraft_version }}
-
-      - name: Set up JDK 21
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
           distribution: 'temurin'
-          cache: 'gradle'
+          java-version: ${{ github.event.inputs.java_version }}
 
-      - name: Build Mod with Gradle
-        run: |
-          chmod +x gradlew
-          ./gradlew build
-
-      - name: Deploy to Turmeric Library
-        uses: w9jds/firebase-action@v13.16.0
+      - name: Update Firestore status → compiling
+        uses: google-github-actions/setup-gcloud@v2
         with:
-          args: >
-            storage:upload build/libs/*.jar --destination mods/${{ github.event.inputs.project_id }}/mod.jar
-        env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          service_account_key: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - run: |
+          curl -s -X PATCH \
+            "https://firestore.googleapis.com/v1/projects/turmericai/databases/(default)/documents/projects/${{ github.event.inputs.project_id }}?updateMask.fieldPaths=status" \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            -d '{"fields":{"status":{"stringValue":"compiling"}}}'
 
-      - name: Update Firestore Status
+      - name: Write source files
         run: |
-          # Uses the Firebase CLI to mark the mod as 'ready' in your DB
-          firebase firestore:coll:set projects ${{ github.event.inputs.project_id }} '{"status": "ready"}' --merge
-        env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          echo '${{ github.event.inputs.files_json }}' > /tmp/files.json
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const files = JSON.parse(fs.readFileSync('/tmp/files.json', 'utf8'));
+            for (const [filePath, content] of Object.entries(files)) {
+              const fullPath = path.join('project', filePath);
+              fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+              fs.writeFileSync(fullPath, content);
+              console.log('Wrote:', fullPath);
+            }
+          "
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build mod
+        id: build
+        working-directory: project
+        run: |
+          chmod +x gradlew 2>/dev/null || true
+          # If no gradlew, use system gradle
+          if [ -f "gradlew" ]; then
+            ./gradlew build --no-daemon 2>&1 | tee build.log
+          else
+            gradle build --no-daemon 2>&1 | tee build.log
+          fi
+
+      - name: Find JAR
+        id: find_jar
+        run: |
+          JAR_PATH=$(find project/build/libs -name "*.jar" ! -name "*-sources.jar" ! -name "*-dev.jar" | head -1)
+          if [ -z "$JAR_PATH" ]; then
+            echo "error=No JAR file found in build output" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          JAR_NAME=$(basename "$JAR_PATH")
+          echo "jar_path=$JAR_PATH" >> $GITHUB_OUTPUT
+          echo "jar_name=$JAR_NAME" >> $GITHUB_OUTPUT
+          echo "Found JAR: $JAR_PATH"
+
+      - name: Upload JAR to Firebase Storage
+        if: steps.find_jar.outcome == 'success'
+        run: |
+          JAR_PATH="${{ steps.find_jar.outputs.jar_path }}"
+          JAR_NAME="${{ steps.find_jar.outputs.jar_name }}"
+          PROJECT_ID="${{ github.event.inputs.project_id }}"
+          BUCKET="turmericai.firebasestorage.app"
+          STORAGE_PATH="builds/${PROJECT_ID}/${JAR_NAME}"
+          TOKEN=$(gcloud auth print-access-token)
+
+          # Upload to Firebase Storage
+          curl -s -X POST \
+            "https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o?name=${STORAGE_PATH}" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Content-Type: application/java-archive" \
+            --data-binary @"${JAR_PATH}"
+
+          # Get download URL
+          ENCODED_PATH=$(echo "${STORAGE_PATH}" | sed 's/\//%2F/g')
+          JAR_URL="https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/${ENCODED_PATH}?alt=media"
+          echo "jar_url=${JAR_URL}" >> $GITHUB_OUTPUT
+          echo "Uploaded to: ${JAR_URL}"
+        id: upload
+
+      - name: Update Firestore status → ready
+        if: steps.upload.outcome == 'success'
+        run: |
+          curl -s -X PATCH \
+            "https://firestore.googleapis.com/v1/projects/turmericai/databases/(default)/documents/projects/${{ github.event.inputs.project_id }}?updateMask.fieldPaths=status&updateMask.fieldPaths=jarUrl" \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "fields": {
+                "status": {"stringValue": "ready"},
+                "jarUrl": {"stringValue": "${{ steps.upload.outputs.jar_url }}"}
+              }
+            }'
+
+      - name: Update Firestore status → failed (on error)
+        if: failure()
+        run: |
+          BUILD_LOG=""
+          if [ -f "project/build.log" ]; then
+            BUILD_LOG=$(tail -50 project/build.log | head -c 5000)
+          fi
+          curl -s -X PATCH \
+            "https://firestore.googleapis.com/v1/projects/turmericai/databases/(default)/documents/projects/${{ github.event.inputs.project_id }}?updateMask.fieldPaths=status&updateMask.fieldPaths=buildLog" \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"fields\": {
+                \"status\": {\"stringValue\": \"failed\"},
+                \"buildLog\": {\"stringValue\": $(echo "$BUILD_LOG" | jq -Rs .)}
+              }
+            }"
+
+      - name: Upload build log as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: project/build.log
+          if-no-files-found: ignore
