@@ -1,21 +1,20 @@
-name: Termuric Mod Compiler
+name: Turmeric Compiler Engine
 on:
   workflow_dispatch:
     inputs:
       minecraft_version:
-        description: 'The branch/version to build (e.g., 1.20)'
+        description: 'Branch/MC Version (e.g., 1.20.1)'
         required: true
-        default: '1.20'
+        default: '1.21'
       project_id:
-        description: 'Firebase Project ID'
+        description: 'Firestore Project ID'
         required: true
 
 jobs:
-  build:
+  build_and_upload:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Tell GitHub to jump to the branch the user selected in your UI
-      - name: Checkout Template Branch
+      - name: Checkout Template
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.minecraft_version }}
@@ -27,8 +26,22 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Grant Execute Permission
-        run: chmod +x gradlew
+      - name: Build Mod with Gradle
+        run: |
+          chmod +x gradlew
+          ./gradlew build
 
-      - name: Build with Gradle
-        run: ./gradlew build
+      - name: Deploy to Turmeric Library
+        uses: w9jds/firebase-action@v13.16.0
+        with:
+          args: >
+            storage:upload build/libs/*.jar --destination mods/${{ github.event.inputs.project_id }}/mod.jar
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Update Firestore Status
+        run: |
+          # Uses the Firebase CLI to mark the mod as 'ready' in your DB
+          firebase firestore:coll:set projects ${{ github.event.inputs.project_id }} '{"status": "ready"}' --merge
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
